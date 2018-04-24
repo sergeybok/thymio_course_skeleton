@@ -92,6 +92,23 @@ class BasicThymio:
         # waiting until shutdown flag (e.g. ctrl+c)
         rospy.spin()
 
+    def eight_move(self):
+        vel_msg = Twist()
+        vel_msg.linear.x = 0.0 # m/s
+        vel_msg.angular.z = 0. # rad/s
+        cur_time = rospy.Time.now().to_sec()
+        while not rospy.is_shutdown():
+            # Publishing thymo vel_msg
+            vel_msg.linear.x = 0.1
+            cur_time = rospy.Time.now().to_sec()
+            vel_msg.angular.z = cos(cur_time)
+            self.velocity_publisher.publish(vel_msg)
+            # .. at the desired rate.
+            self.rate.sleep()
+
+
+
+
 def usage():
     return "Wrong number of parameters. basic_move.py [thymio_name]"
 
@@ -110,8 +127,9 @@ if __name__ == '__main__':
     # NOTE: The goal of this step is *only* to show the available
     # tools. The launch file process should take care of initializing
     # the simulation and spawning the respective models
-    
+
     #thymio.thymio_state_service_request([0.,0.,0.], [0.,0.,0.])
     #rospy.sleep(1.)
 
-    thymio.basic_move()
+    #thymio.basic_move()
+    thymio.eight_move()
