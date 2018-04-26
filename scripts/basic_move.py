@@ -92,16 +92,34 @@ class BasicThymio:
         # waiting until shutdown flag (e.g. ctrl+c)
         rospy.spin()
 
-    def eight_move(self):
+    def make_circle(self,right=1):
+        est_time = 20*np.pi
         vel_msg = Twist()
         vel_msg.linear.x = 0.0 # m/s
         vel_msg.angular.z = 0. # rad/s
-        cur_time = rospy.Time.now().to_sec()
-        while not rospy.is_shutdown():
+        angvel = 0.1 * right
+        cur_time = start_time = rospy.Time.now().to_sec()
+        while not rospy.is_shutdown() and cur_time < (start_time + est_time):
             # Publishing thymo vel_msg
             vel_msg.linear.x = 0.1
             cur_time = rospy.Time.now().to_sec()
-            vel_msg.angular.z = cos(cur_time)
+            vel_msg.angular.z = 0.1
+            self.velocity_publisher.publish(vel_msg)
+            # .. at the desired rate.
+            self.rate.sleep()
+
+
+    def eight_move(self):
+        est_time = 20*np.pi
+        vel_msg = Twist()
+        vel_msg.linear.x = 0.0 # m/s
+        vel_msg.angular.z = 0. # rad/s
+        cur_time = rospy.Time.now().to_sec() % est_time
+        while not rospy.is_shutdown():
+            # Publishing thymo vel_msg
+            vel_msg.linear.x = 0.1
+            cur_time = rospy.Time.now().to_sec() % est_time
+            vel_msg.angular.z = 0.1
             self.velocity_publisher.publish(vel_msg)
             # .. at the desired rate.
             self.rate.sleep()
@@ -132,4 +150,5 @@ if __name__ == '__main__':
     #rospy.sleep(1.)
 
     #thymio.basic_move()
-    thymio.eight_move()
+    thymio.make_circle(right=1)
+    thymio.make_circle(right=-1)
