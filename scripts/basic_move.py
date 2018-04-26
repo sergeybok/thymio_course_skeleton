@@ -93,20 +93,23 @@ class BasicThymio:
         rospy.spin()
 
     def make_circle(self,right=1):
-        est_time = 20*np.pi
+        est_time = 10*np.pi
         vel_msg = Twist()
         vel_msg.linear.x = 0.0 # m/s
         vel_msg.angular.z = 0. # rad/s
-        angvel = 0.1 * right
+        angvel = 0.2 * right
         cur_time = start_time = rospy.Time.now().to_sec()
         while not rospy.is_shutdown() and cur_time < (start_time + est_time):
             # Publishing thymo vel_msg
             vel_msg.linear.x = 0.1
             cur_time = rospy.Time.now().to_sec()
-            vel_msg.angular.z = 0.1
+            vel_msg.angular.z = angvel
             self.velocity_publisher.publish(vel_msg)
             # .. at the desired rate.
             self.rate.sleep()
+        vel_msg.angular.z = 0.0
+        vel_msg.linear.x = 0.0
+        self.velocity_publisher.publish(vel_msg)
 
 
     def eight_move(self):
