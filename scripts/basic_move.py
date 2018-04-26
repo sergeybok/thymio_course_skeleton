@@ -75,22 +75,23 @@ class BasicThymio:
     def basic_move(self):
         """Moves the migthy thymio"""
         vel_msg = Twist()
-        vel_msg.linear.x = 0.2 # m/s
+        vel_msg.linear.x = 0.1 # m/s
         vel_msg.angular.z = 0. # rad/s
-
-        while not rospy.is_shutdown():
+        cur_time = start_time = rospy.Time.now().to_sec()
+        while not rospy.is_shutdown() and cur_time < start_time+10:
             # Publishing thymo vel_msg
             self.velocity_publisher.publish(vel_msg)
             # .. at the desired rate.
             self.rate.sleep()
+            cur_time = rospy.Time.now().to_sec()
 
         # Stop thymio. With is_shutdown condition we do not reach this point.
-        #vel_msg.linear.x = 0.
-        #vel_msg.angular.z = 0.
-        #self.velocity_publisher.publish(vel_msg)
+        vel_msg.linear.x = 0.
+        vel_msg.angular.z = 0.
+        self.velocity_publisher.publish(vel_msg)
 
         # waiting until shutdown flag (e.g. ctrl+c)
-        rospy.spin()
+        #rospy.spin()
 
     def make_circle(self,right=1):
         est_time = 10*np.pi
@@ -99,7 +100,7 @@ class BasicThymio:
         vel_msg.angular.z = 0. # rad/s
         angvel = 0.2 * right
         cur_time = start_time = rospy.Time.now().to_sec()
-        while not rospy.is_shutdown() and cur_time < (start_time + est_time):
+        while (not rospy.is_shutdown()) and (cur_time < (start_time + est_time)):
             # Publishing thymo vel_msg
             vel_msg.linear.x = 0.1
             cur_time = rospy.Time.now().to_sec()
@@ -152,6 +153,6 @@ if __name__ == '__main__':
     #thymio.thymio_state_service_request([0.,0.,0.], [0.,0.,0.])
     #rospy.sleep(1.)
 
-    #thymio.basic_move()
+    thymio.basic_move()
     thymio.make_circle(right=1)
     thymio.make_circle(right=-1)
