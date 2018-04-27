@@ -148,21 +148,40 @@ class BasicThymio:
 
     def basic_move(self,state=[1]):
         """Moves the migthy thymio"""
+        # Three states
+        #   [1] moving forward in x, until is within 0.01 of wall
+        #   [2] right after hitting wall, move back a little
+        #   [3] rotate by <angle> 
         vel_msg = Twist()
         vel_msg.linear.x = 0.2 # m/s
         vel_msg.angular.z = 0. # rad/s
         cur_time = start_time = rospy.Time.now().to_sec()
-        while not rospy.is_shutdown(): #and cur_time < start_time+10:
-            if np.mean(self.center_left_buffer) < 0.01 or state[0]==2:
-                vel_msg2 = Twist()
-                vel_msg2.linear.x = -0.2 # m/s
-                vel_msg2.angular.z = 0. # rad/s
-                self.velocity_publisher.publish(vel_msg2)
-                state[0] = 2
-            else:
-                 # Publishing thymo vel_msg
-                 self.velocity_publisher.publish(vel_msg)
-                 # .. at the desired rate.
+        while not rospy.is_shutdown() or state[0] == 3 : #and cur_time < start_time+10:
+            if state[0] == 1:           
+                if np.mean(self.center_left_buffer+self.center_right_buffer+self.center) < 0.01:
+                    state[0] = 2
+                    angle_hat = get_angle_from_proximity(np.mean(self.center_buffer),
+                            np.mean(self.center_left_buffer),np.mean(self.left_buffer),
+                            np.mean(self.center_right_buffer),np.mean(self.right_buffer))
+                    vel_msg.linear.x = -0.3
+                    self.velocity_publisher.publish(vel_msg)
+                    state[0] = 2 
+                    #continue
+                else:
+                    # Publishing thymo vel_msg
+                    self.velocity_publisher.publish(vel_msg)
+            elif state[0] == 2:
+                vel_msg.linear.x = 0.0 
+                self.velocity_publisher.publish(vel_msg)
+                vel_msg.angular.z = angle_hat/2.0 # makes the turn in 2 secs
+                start_time = cur_time = rospy.Time.now().to_sec()
+                while(cur_time < start_time + 2):
+                    self.velocity_publisher.publish(vel_msg)
+                    self.rate.sleep()
+                    cur_time = rospy.Time.now().to_sec()
+                vel_msg.angular.z = 0.0 
+                vel_msg.linear.x = 0.0 
+                state[0] = 3 
             self.rate.sleep()
             cur_time = rospy.Time.now().to_sec()              
 
@@ -213,14 +232,14 @@ class BasicThymio:
         theta = np.deg2rad(30) # angle between center and center_left/right
         phi = np.deg2rad(55) # angle between center and left/right
         angle = 90 # the angle we are trying to find, between x-axis of thymio (center prox sensor) and wall
-        if np.isinf(center):
+        if center > 0.119:
             return None 
-        if np.isinf(center_left) and np.isinf(center_right):
+        if center_left > 0.119 and center_right > 0.119:
             return None
         if center_left < center_right: # positive angle, wall closer to the left
             c = np.sqrt(center + center_left - 2*center*center_left*np.cos(theta)) # the distance between where the center prox sensor hits the wall and the center left prox sensor hits the wall
             angle = np.arcsin(center_left*np.sin(theta)/c)
-            if not np.isinf(left): # make the angle average calculated from 2 sensors for more accuracy
+            if left < 0.119: # make the angle average calculated from 2 sensors for more accuracy
                 c = np.sqrt(center + left - 2*center*left*np.cos(phi))
                 angle += np.arcsin(left*np.sin(phi)/c)
                 angle /= 2 # the average 
@@ -228,7 +247,7 @@ class BasicThymio:
         else:
             c = np.sqrt(center + center_right - 2*center*center_right*np.cos(theta))
             angle = np.arcsin(center_right*np.sin(theta)/c)
-            if not np.isinf(right):
+            if ( right < 0.119):
                 c = np.sqrt(center + right - 2*center*right*np.cos(phi))
                 angle += np.arcsin(right*np.sin(phi)/c)
                 angle /= 2
