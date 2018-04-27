@@ -154,12 +154,12 @@ class BasicThymio:
         #   [2] right after hitting wall, move back a little
         #   [3] rotate by <angle>
         vel_msg = Twist()
-        vel_msg.linear.x = 0.03 # m/s
+        vel_msg.linear.x = 0.06 # m/s
         vel_msg.angular.z = 0. # rad/s
         cur_time = start_time = rospy.Time.now().to_sec()
         while not rospy.is_shutdown() : #and cur_time < start_time+10:
             if state[0] == 1:
-                if min(np.mean(self.center_left_buffer), np.mean(self.center_right_buffer)) < 0.09:
+                if min(np.mean(self.center_left_buffer), np.mean(self.center_right_buffer)) < 0.08:
                     state[0] = 2
                     vel_msg.linear.x = 0.0
                     self.velocity_publisher.publish(vel_msg)
@@ -178,20 +178,32 @@ class BasicThymio:
                 while(not (np.allclose(np.mean(self.center_left_buffer),np.mean(self.center_right_buffer),atol=0.004) or np.allclose(np.mean(self.left_buffer),np.mean(self.right_buffer),atol=0.004))):
                     self.velocity_publisher.publish(vel_msg)
                     rospy.loginfo("FIRST loop, left: %.4f right: %.4f"%(np.mean(self.center_left_buffer),np.mean(self.center_right_buffer)))
-                vel_msg.angular.z = 0
-                self.velocity_publisher.publish(vel_msg)
 
 
+                start_time = cur_time = rospy.Time.now().to_sec()
+                cur_angle = 0
+                ang_speed *= 2
+                while(np.abs(cur_angle) < np.pi):
+                    vel_msg.angular.z = ang_speed
+                    self.velocity_publisher.publish(vel_msg)
+                    cur_time = rospy.Time.now().to_sec()
+                    cur_angle = ang_speed*(cur_time - start_time)
+                    rospy.loginfo("SECOND loop,")
 
-
-                #vel_msg.angular.z = angle_hat/2.0 # makes the turn in 2 secs
-                #start_time = cur_time = rospy.Time.now().to_sec()
-                #while(cur_time < start_time + 2):
-                #    self.velocity_publisher.publish(vel_msg)
-                #    self.rate.sleep()
-                #    cur_time = rospy.Time.now().to_sec()
                 vel_msg.angular.z = 0.0
                 vel_msg.linear.x = 0.0
+                self.velocity_publisher.publish(vel_msg)
+                #break # substitute this for going forward for 1.92 meters
+                speed = 0.2
+                dist = 1.9
+                cur_dist = 0
+                start_time = cur_time = rospy.Time.now().to_sec()
+                while(cur_dist < dist):
+                    vel_msg.linear.x = speed
+                    self.velocity_publisher.publish(vel_msg)
+                    cur_time = rospy.Time.now().to_sec()
+                    cur_dist = speed*(cur_time - start_time)
+
                 break
             self.rate.sleep()
             cur_time = rospy.Time.now().to_sec()
