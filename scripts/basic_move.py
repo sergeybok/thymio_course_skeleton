@@ -31,8 +31,30 @@ class BasicThymio:
         self.pose_subscriber = rospy.Subscriber(self.thymio_name + '/odom',
                                                 Odometry, self.update_state)
         self.sensor_center_subscriber = rospy.Subscriber(self.thymio_name+'/proximity/center', Range, self.callback_sensor_center)
-        self.center_range = Range()
+        self.sensor_center_left_subscriber = rospy.Subscriber(self.thymio_name+'/proximity/center_left', Range, self.callback_sensor_center_left)
+        self.sensor_center_right_subscriber = rospy.Subscriber(self.thymio_name+'/proximity/center_right', Range, self.callback_sensor_center_right)
+        self.sensor_left_subscriber = rospy.Subscriber(self.thymio_name+'/proximity/left', Range, self.callback_sensor_left)
+        self.sensor_right_subscriber = rospy.Subscriber(self.thymio_name+'/proximity/right', Range, self.callback_sensor_right)
+        self.sensor_rear_right_subscriber = rospy.Subscriber(self.thymio_name+'/proximity/rear_right', Range, self.callback_sensor_rear_right)
+        self.sensor_rear_left_subscriber = rospy.Subscriber(self.thymio_name+'/proximity/rear_left', Range, self.callback_sensor_rear_left)
 
+        self.center_range = Range()
+        self.center_left_range = Range()
+        self.center_right_range = Range()
+        self.left_range = Range()
+        self.right_range = Range()
+        self.rear_right_range = Range()
+        self.rear_left_range = Range()
+
+	self.center_buffer = [0.12]*10
+	self.center_left_buffer = [0.12]*10
+	self.center_right_buffer = [0.12]*10
+	self.left_buffer = [0.12]*10
+	self.right_buffer = [0.12]*10
+	self.rear_right_buffer = [0.12]*10
+	self.rear_left_buffer = [0.12]*10
+
+        
         self.current_pose = Pose()
         self.current_twist = Twist()
         # publish at this rate
@@ -40,9 +62,52 @@ class BasicThymio:
 
     def callback_sensor_center(self, data):
         self.center_range = data
-        self.center_range.range = round(self.center_range.range, 4)
-        rospy.loginfo("State from Sensor: (%.4f) " % (self.center_range.range))
+        self.center_range.range = abs(round(self.center_range.range, 4))
+        self.center_buffer.append(self.center_range.range)
+        self.center_buffer.pop(0)
+        rospy.loginfo("State from Sensor Center: (%.4f) " % (self.center_range.range))
        
+    def callback_sensor_center_left(self, data):
+        self.center_left_range = data
+        self.center_left_range.range = abs(round(self.center_left_range.range, 4))
+        self.center_left_buffer.append(self.center_left_range.range)
+        self.center_left_buffer.pop(0)
+        rospy.loginfo("State from Sensor Center Left: (%.4f) " % (self.center_left_range.range))
+
+    def callback_sensor_center_right(self, data):
+        self.center_right_range = data
+        self.center_right_range.range = abs(round(self.center_right_range.range, 4))
+        self.center_right_buffer.append(self.center_right_range.range)
+        self.center_right_buffer.pop(0)
+        rospy.loginfo("State from Sensor Center Right: (%.4f) " % (self.center_right_range.range))
+
+    def callback_sensor_left(self, data):
+        self.left_range = data
+        self.left_range.range = abs(round(self.left_range.range, 4))
+        self.left_buffer.append(self.left_range.range)
+        self.left_buffer.pop(0)
+        rospy.loginfo("State from Sensor Left: (%.4f) " % (self.left_range.range))
+
+    def callback_sensor_right(self, data):
+        self.right_range = data
+        self.right_range.range = abs(round(self.right_range.range, 4))
+        self.right_buffer.append(self.right_range.range)
+        self.right_buffer.pop(0)
+        rospy.loginfo("State from Sensor Right: (%.4f) " % (self.right_range.range))
+
+    def callback_sensor_rear_right(self, data):
+        self.rear_right_range = data
+        self.rear_right_range.range = abs(round(self.rear_right_range.range, 4))
+        self.rear_right_buffer.append(self.rear_right_range.range)
+        self.rear_right_buffer.pop(0)
+        rospy.loginfo("State from Sensor Rear Right: (%.4f) " % (self.rear_right_range.range))
+
+    def callback_sensor_rear_left(self, data):
+        self.rear_left_range = data
+        self.rear_left_range.range = abs(round(self.rear_left_range.range, 4))
+        self.rear_left_buffer.append(self.rear_left_range.range)
+        self.rear_left_buffer.pop(0)
+        rospy.loginfo("State from Sensor Rear Left: (%.4f) " % (self.rear_left_range.range))
 
     def thymio_state_service_request(self, position, orientation):
         """Request the service (set thymio state values) exposed by
@@ -81,18 +146,19 @@ class BasicThymio:
         (roll, pitch, yaw) = euler_from_quaternion (quat)
         #rospy.loginfo("State from Odom: (%.5f, %.5f, %.5f) " % (self.current_pose.position.x, self.current_pose.position.y, yaw))
 
-    def basic_move(self):
+    def basic_move(self,state=[1]):
         """Moves the migthy thymio"""
         vel_msg = Twist()
-        vel_msg.linear.x = 0.1 # m/s
+        vel_msg.linear.x = 0.2 # m/s
         vel_msg.angular.z = 0. # rad/s
         cur_time = start_time = rospy.Time.now().to_sec()
         while not rospy.is_shutdown(): #and cur_time < start_time+10:
-            if self.center_range.range < 0.0001:
+            if np.mean(self.center_left_buffer) < 0.01 or state[0]==2:
                 vel_msg2 = Twist()
                 vel_msg2.linear.x = -0.2 # m/s
                 vel_msg2.angular.z = 0. # rad/s
-                self.velocity_publisher.publish(vel_msg2) 
+                self.velocity_publisher.publish(vel_msg2)
+                state[0] = 2
             else:
                  # Publishing thymo vel_msg
                  self.velocity_publisher.publish(vel_msg)
