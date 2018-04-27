@@ -4,6 +4,7 @@ import sys
 
 import numpy as np
 from geometry_msgs.msg import Pose, Twist
+from sensor_msgs.msg import Range
 from nav_msgs.msg import Odometry
 from math import cos, sin, asin, tan, atan2
 # msgs and srv for working with the set_model_service
@@ -29,11 +30,19 @@ class BasicThymio:
         # when a message of type Pose is received.
         self.pose_subscriber = rospy.Subscriber(self.thymio_name + '/odom',
                                                 Odometry, self.update_state)
+        self.sensor_center_subscriber = rospy.Subscriber(self.thymio_name+'/proximity/center', Range, self.callback_sensor_center)
+        self.center_range = Range()
 
         self.current_pose = Pose()
         self.current_twist = Twist()
         # publish at this rate
         self.rate = rospy.Rate(10)
+
+    def callback_sensor_center(self, data):
+        self.center_range = data
+        self.center_range.range = round(self.center_range.range, 4)
+        rospy.loginfo("State from Sensor: (%.4f) " % (self.center_range.range))
+       
 
     def thymio_state_service_request(self, position, orientation):
         """Request the service (set thymio state values) exposed by
@@ -70,7 +79,7 @@ class BasicThymio:
             self.current_pose.orientation.z,
             self.current_pose.orientation.w)
         (roll, pitch, yaw) = euler_from_quaternion (quat)
-        rospy.loginfo("State from Odom: (%.5f, %.5f, %.5f) " % (self.current_pose.position.x, self.current_pose.position.y, yaw))
+        #rospy.loginfo("State from Odom: (%.5f, %.5f, %.5f) " % (self.current_pose.position.x, self.current_pose.position.y, yaw))
 
     def basic_move(self):
         """Moves the migthy thymio"""
@@ -78,12 +87,18 @@ class BasicThymio:
         vel_msg.linear.x = 0.1 # m/s
         vel_msg.angular.z = 0. # rad/s
         cur_time = start_time = rospy.Time.now().to_sec()
-        while not rospy.is_shutdown() and cur_time < start_time+10:
-            # Publishing thymo vel_msg
-            self.velocity_publisher.publish(vel_msg)
-            # .. at the desired rate.
+        while not rospy.is_shutdown(): #and cur_time < start_time+10:
+            if self.center_range.range < 0.0001:
+                vel_msg2 = Twist()
+                vel_msg2.linear.x = -0.2 # m/s
+                vel_msg2.angular.z = 0. # rad/s
+                self.velocity_publisher.publish(vel_msg2) 
+            else:
+                 # Publishing thymo vel_msg
+                 self.velocity_publisher.publish(vel_msg)
+                 # .. at the desired rate.
             self.rate.sleep()
-            cur_time = rospy.Time.now().to_sec()
+            cur_time = rospy.Time.now().to_sec()              
 
         # Stop thymio. With is_shutdown condition we do not reach this point.
         vel_msg.linear.x = 0.
@@ -178,5 +193,5 @@ if __name__ == '__main__':
     #rospy.sleep(1.)
 
     thymio.basic_move()
-    thymio.make_circle(right=1)
-    thymio.make_circle(right=-1)
+    #thymio.make_circle(right=1)
+    #thymio.make_circle(right=-1)
