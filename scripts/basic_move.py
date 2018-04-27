@@ -128,7 +128,31 @@ class BasicThymio:
             # .. at the desired rate.
             self.rate.sleep()
 
-
+    def get_angle_from_proximity(self, center, center_left, left, center_right, right):
+        theta = np.deg2rad(30) # angle between center and center_left/right
+        phi = np.deg2rad(55) # angle between center and left/right
+        angle = 90 # the angle we are trying to find, between x-axis of thymio (center prox sensor) and wall
+        if np.isinf(center):
+            return None 
+        if np.isinf(center_left) and np.isinf(center_right):
+            return None
+        if center_left < center_right: # positive angle, wall closer to the left
+            c = np.sqrt(center + center_left - 2*center*center_left*np.cos(theta)) # the distance between where the center prox sensor hits the wall and the center left prox sensor hits the wall
+            angle = np.arcsin(center_left*np.sin(theta)/c)
+            if not np.isinf(left): # make the angle average calculated from 2 sensors for more accuracy
+                c = np.sqrt(center + left - 2*center*left*np.cos(phi))
+                angle += np.arcsin(left*np.sin(phi)/c)
+                angle /= 2 # the average 
+            return angle
+        else:
+            c = np.sqrt(center + center_right - 2*center*center_right*np.cos(theta))
+            angle = np.arcsin(center_right*np.sin(theta)/c)
+            if not np.isinf(right):
+                c = np.sqrt(center + right - 2*center*right*np.cos(phi))
+                angle += np.arcsin(right*np.sin(phi)/c)
+                angle /= 2
+            return -1*angle
+        return angle
 
 
 def usage():
