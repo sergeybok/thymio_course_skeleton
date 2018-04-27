@@ -54,7 +54,7 @@ class BasicThymio:
 	self.rear_right_buffer = [0.12]*10
 	self.rear_left_buffer = [0.12]*10
 
-        
+
         self.current_pose = Pose()
         self.current_twist = Twist()
         # publish at this rate
@@ -65,49 +65,49 @@ class BasicThymio:
         self.center_range.range = abs(round(self.center_range.range, 4))
         self.center_buffer.append(self.center_range.range)
         self.center_buffer.pop(0)
-        rospy.loginfo("State from Sensor Center: (%.4f) " % (self.center_range.range))
-       
+        #rospy.loginfo("State from Sensor Center: (%.4f) " % (self.center_range.range))
+
     def callback_sensor_center_left(self, data):
         self.center_left_range = data
         self.center_left_range.range = abs(round(self.center_left_range.range, 4))
         self.center_left_buffer.append(self.center_left_range.range)
         self.center_left_buffer.pop(0)
-        rospy.loginfo("State from Sensor Center Left: (%.4f) " % (self.center_left_range.range))
+        #rospy.loginfo("State from Sensor Center Left: (%.4f) " % (self.center_left_range.range))
 
     def callback_sensor_center_right(self, data):
         self.center_right_range = data
         self.center_right_range.range = abs(round(self.center_right_range.range, 4))
         self.center_right_buffer.append(self.center_right_range.range)
         self.center_right_buffer.pop(0)
-        rospy.loginfo("State from Sensor Center Right: (%.4f) " % (self.center_right_range.range))
+        #rospy.loginfo("State from Sensor Center Right: (%.4f) " % (self.center_right_range.range))
 
     def callback_sensor_left(self, data):
         self.left_range = data
         self.left_range.range = abs(round(self.left_range.range, 4))
         self.left_buffer.append(self.left_range.range)
         self.left_buffer.pop(0)
-        rospy.loginfo("State from Sensor Left: (%.4f) " % (self.left_range.range))
+        #rospy.loginfo("State from Sensor Left: (%.4f) " % (self.left_range.range))
 
     def callback_sensor_right(self, data):
         self.right_range = data
         self.right_range.range = abs(round(self.right_range.range, 4))
         self.right_buffer.append(self.right_range.range)
         self.right_buffer.pop(0)
-        rospy.loginfo("State from Sensor Right: (%.4f) " % (self.right_range.range))
+        #rospy.loginfo("State from Sensor Right: (%.4f) " % (self.right_range.range))
 
     def callback_sensor_rear_right(self, data):
         self.rear_right_range = data
         self.rear_right_range.range = abs(round(self.rear_right_range.range, 4))
         self.rear_right_buffer.append(self.rear_right_range.range)
         self.rear_right_buffer.pop(0)
-        rospy.loginfo("State from Sensor Rear Right: (%.4f) " % (self.rear_right_range.range))
+        #rospy.loginfo("State from Sensor Rear Right: (%.4f) " % (self.rear_right_range.range))
 
     def callback_sensor_rear_left(self, data):
         self.rear_left_range = data
         self.rear_left_range.range = abs(round(self.rear_left_range.range, 4))
         self.rear_left_buffer.append(self.rear_left_range.range)
         self.rear_left_buffer.pop(0)
-        rospy.loginfo("State from Sensor Rear Left: (%.4f) " % (self.rear_left_range.range))
+        #rospy.loginfo("State from Sensor Rear Left: (%.4f) " % (self.rear_left_range.range))
 
     def thymio_state_service_request(self, position, orientation):
         """Request the service (set thymio state values) exposed by
@@ -151,39 +151,50 @@ class BasicThymio:
         # Three states
         #   [1] moving forward in x, until is within 0.01 of wall
         #   [2] right after hitting wall, move back a little
-        #   [3] rotate by <angle> 
+        #   [3] rotate by <angle>
         vel_msg = Twist()
         vel_msg.linear.x = 0.2 # m/s
         vel_msg.angular.z = 0. # rad/s
         cur_time = start_time = rospy.Time.now().to_sec()
-        while not rospy.is_shutdown() or state[0] == 3 : #and cur_time < start_time+10:
-            if state[0] == 1:           
-                if np.mean(self.center_left_buffer+self.center_right_buffer+self.center) < 0.01:
+        while not rospy.is_shutdown() : #and cur_time < start_time+10:
+            if state[0] == 1:
+                if np.mean(self.center_left_buffer+self.center_right_buffer) < 0.06:
                     state[0] = 2
-                    angle_hat = get_angle_from_proximity(np.mean(self.center_buffer),
+                    angle_hat = None
+                    while angle_hat == None:
+                        angle_hat = self.get_angle_from_proximity(np.mean(self.center_buffer),
                             np.mean(self.center_left_buffer),np.mean(self.left_buffer),
                             np.mean(self.center_right_buffer),np.mean(self.right_buffer))
-                    vel_msg.linear.x = -0.3
+                    vel_msg.linear.x = -0.25
+                    rospy.loginfo("*****ANGLE_HAT: (%.5f) " % (angle_hat))
                     self.velocity_publisher.publish(vel_msg)
-                    state[0] = 2 
+                    state[0] = 2
                     #continue
                 else:
                     # Publishing thymo vel_msg
                     self.velocity_publisher.publish(vel_msg)
             elif state[0] == 2:
-                vel_msg.linear.x = 0.0 
+                vel_msg.linear.x = 0.0
                 self.velocity_publisher.publish(vel_msg)
-                vel_msg.angular.z = angle_hat/2.0 # makes the turn in 2 secs
+                ang_speed = 0.3
+                vel_msg.angular.z = ang_speed
+                current_angle = 0
                 start_time = cur_time = rospy.Time.now().to_sec()
-                while(cur_time < start_time + 2):
+                while(current_angle < angle_hat):
                     self.velocity_publisher.publish(vel_msg)
-                    self.rate.sleep()
                     cur_time = rospy.Time.now().to_sec()
-                vel_msg.angular.z = 0.0 
-                vel_msg.linear.x = 0.0 
-                state[0] = 3 
+                    current_angle = ang_speed*(cur_time - start_time)
+                #vel_msg.angular.z = angle_hat/2.0 # makes the turn in 2 secs
+                #start_time = cur_time = rospy.Time.now().to_sec()
+                #while(cur_time < start_time + 2):
+                #    self.velocity_publisher.publish(vel_msg)
+                #    self.rate.sleep()
+                #    cur_time = rospy.Time.now().to_sec()
+                vel_msg.angular.z = 0.0
+                vel_msg.linear.x = 0.0
+                break
             self.rate.sleep()
-            cur_time = rospy.Time.now().to_sec()              
+            cur_time = rospy.Time.now().to_sec()
 
         # Stop thymio. With is_shutdown condition we do not reach this point.
         vel_msg.linear.x = 0.
@@ -233,21 +244,21 @@ class BasicThymio:
         phi = np.deg2rad(55) # angle between center and left/right
         angle = 90 # the angle we are trying to find, between x-axis of thymio (center prox sensor) and wall
         if center > 0.119:
-            return None 
+            return None
         if center_left > 0.119 and center_right > 0.119:
             return None
         if center_left < center_right: # positive angle, wall closer to the left
             c = np.sqrt(center + center_left - 2*center*center_left*np.cos(theta)) # the distance between where the center prox sensor hits the wall and the center left prox sensor hits the wall
             angle = np.arcsin(center_left*np.sin(theta)/c)
-            if left < 0.119: # make the angle average calculated from 2 sensors for more accuracy
+            if left < 0.119 and False: # make the angle average calculated from 2 sensors for more accuracy
                 c = np.sqrt(center + left - 2*center*left*np.cos(phi))
                 angle += np.arcsin(left*np.sin(phi)/c)
-                angle /= 2 # the average 
+                angle /= 2 # the average
             return angle
         else:
             c = np.sqrt(center + center_right - 2*center*center_right*np.cos(theta))
             angle = np.arcsin(center_right*np.sin(theta)/c)
-            if ( right < 0.119):
+            if ( right < 0.119) and False:
                 c = np.sqrt(center + right - 2*center*right*np.cos(phi))
                 angle += np.arcsin(right*np.sin(phi)/c)
                 angle /= 2
