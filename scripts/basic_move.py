@@ -154,12 +154,12 @@ class BasicThymio:
         #   [2] right after hitting wall, move back a little
         #   [3] rotate by <angle>
         vel_msg = Twist()
-        vel_msg.linear.x = 0.08 # m/s
+        vel_msg.linear.x = 0.03 # m/s
         vel_msg.angular.z = 0. # rad/s
         cur_time = start_time = rospy.Time.now().to_sec()
         while not rospy.is_shutdown() : #and cur_time < start_time+10:
             if state[0] == 1:
-                if np.mean(self.center_left_buffer+self.center_right_buffer) < 0.09:
+                if min(np.mean(self.center_left_buffer), np.mean(self.center_right_buffer)) < 0.09:
                     state[0] = 2
                     vel_msg.linear.x = 0.0
                     self.velocity_publisher.publish(vel_msg)
@@ -175,17 +175,9 @@ class BasicThymio:
                     ang_speed *= -1
                 vel_msg.angular.z = ang_speed
                 start_time = cur_time = rospy.Time.now().to_sec()
-                while(not (np.allclose(np.mean(self.center_left_buffer),np.mean(self.center_right_buffer),atol=0.001) or np.allclose(np.mean(self.left_buffer),np.mean(self.right_buffer),atol=0.001))):
+                while(not (np.allclose(np.mean(self.center_left_buffer),np.mean(self.center_right_buffer),atol=0.004) or np.allclose(np.mean(self.left_buffer),np.mean(self.right_buffer),atol=0.004))):
                     self.velocity_publisher.publish(vel_msg)
                     rospy.loginfo("FIRST loop, left: %.4f right: %.4f"%(np.mean(self.center_left_buffer),np.mean(self.center_right_buffer)))
-                target_angle = np.pi/2.0
-                start_time = cur_time = rospy.Time.now().to_sec()
-                relative_angle = 0
-                while(relative_angle < target_angle):
-                    self.velocity_publisher.publish(vel_msg)
-                    rospy.loginfo("SECOND loop")
-                    cur_time = rospy.Time.now().to_sec()
-                    relative_angle = np.abs(ang_speed)* (cur_time - start_time)
                 vel_msg.angular.z = 0
                 self.velocity_publisher.publish(vel_msg)
 
