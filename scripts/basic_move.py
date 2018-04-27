@@ -26,6 +26,15 @@ class BasicThymio:
         self.velocity_publisher = rospy.Publisher(self.thymio_name + '/cmd_vel',
                                                   Twist, queue_size=10)
 
+        self.center_buffer = [0.12]*8
+	self.center_left_buffer = [0.12]*8
+	self.center_right_buffer = [0.12]*8
+	self.left_buffer = [0.12]*8
+	self.right_buffer = [0.12]*8
+	self.rear_right_buffer = [0.12]*8
+	self.rear_left_buffer = [0.12]*8
+
+
         # A subscriber to the topic '/turtle1/pose'. self.update_pose is called
         # when a message of type Pose is received.
         self.pose_subscriber = rospy.Subscriber(self.thymio_name + '/odom',
@@ -45,14 +54,6 @@ class BasicThymio:
         self.right_range = Range()
         self.rear_right_range = Range()
         self.rear_left_range = Range()
-
-	self.center_buffer = [0.12]*10
-	self.center_left_buffer = [0.12]*10
-	self.center_right_buffer = [0.12]*10
-	self.left_buffer = [0.12]*10
-	self.right_buffer = [0.12]*10
-	self.rear_right_buffer = [0.12]*10
-	self.rear_left_buffer = [0.12]*10
 
 
         self.current_pose = Pose()
@@ -153,22 +154,15 @@ class BasicThymio:
         #   [2] right after hitting wall, move back a little
         #   [3] rotate by <angle>
         vel_msg = Twist()
-        vel_msg.linear.x = 0.2 # m/s
+        vel_msg.linear.x = 0.08 # m/s
         vel_msg.angular.z = 0. # rad/s
         cur_time = start_time = rospy.Time.now().to_sec()
         while not rospy.is_shutdown() : #and cur_time < start_time+10:
             if state[0] == 1:
-                if np.mean(self.center_left_buffer+self.center_right_buffer) < 0.06:
+                if np.mean(self.center_left_buffer+self.center_right_buffer) < 0.09:
                     state[0] = 2
-                    angle_hat = None
-                    while angle_hat == None:
-                        angle_hat = self.get_angle_from_proximity(np.mean(self.center_buffer),
-                            np.mean(self.center_left_buffer),np.mean(self.left_buffer),
-                            np.mean(self.center_right_buffer),np.mean(self.right_buffer))
-                    vel_msg.linear.x = -0.25
-                    rospy.loginfo("*****ANGLE_HAT: (%.5f) " % (angle_hat))
+                    vel_msg.linear.x = 0.0
                     self.velocity_publisher.publish(vel_msg)
-                    state[0] = 2
                     #continue
                 else:
                     # Publishing thymo vel_msg
@@ -176,14 +170,28 @@ class BasicThymio:
             elif state[0] == 2:
                 vel_msg.linear.x = 0.0
                 self.velocity_publisher.publish(vel_msg)
-                ang_speed = 0.3
+                ang_speed = 0.1
+                if np.mean(self.center_left_buffer) > np.mean(self.center_right_buffer):
+                    ang_speed *= -1
                 vel_msg.angular.z = ang_speed
-                current_angle = 0
                 start_time = cur_time = rospy.Time.now().to_sec()
-                while(current_angle < angle_hat):
+                while(not (np.allclose(np.mean(self.center_left_buffer),np.mean(self.center_right_buffer),atol=0.001) or np.allclose(np.mean(self.left_buffer),np.mean(self.right_buffer),atol=0.001))):
                     self.velocity_publisher.publish(vel_msg)
+                    rospy.loginfo("FIRST loop, left: %.4f right: %.4f"%(np.mean(self.center_left_buffer),np.mean(self.center_right_buffer)))
+                target_angle = np.pi/2.0
+                start_time = cur_time = rospy.Time.now().to_sec()
+                relative_angle = 0
+                while(relative_angle < target_angle):
+                    self.velocity_publisher.publish(vel_msg)
+                    rospy.loginfo("SECOND loop")
                     cur_time = rospy.Time.now().to_sec()
-                    current_angle = ang_speed*(cur_time - start_time)
+                    relative_angle = np.abs(ang_speed)* (cur_time - start_time)
+                vel_msg.angular.z = 0
+                self.velocity_publisher.publish(vel_msg)
+
+
+
+
                 #vel_msg.angular.z = angle_hat/2.0 # makes the turn in 2 secs
                 #start_time = cur_time = rospy.Time.now().to_sec()
                 #while(cur_time < start_time + 2):
