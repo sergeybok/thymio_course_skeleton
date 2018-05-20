@@ -9,10 +9,9 @@ from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Image
 
 import numpy as np
-from scipy import misc
 import cv2, cv_bridge
 
-import sys, select, termios, tty
+import sys, select, termios, tty, os
 
 msg = """
 Reading from the keyboard  and Publishing to Twist!
@@ -41,25 +40,16 @@ CTRL-C to quit
 """
 
 moveBindings = {
-		'i':(1,0,0,0),
-		'o':(1,0,0,-1),
-		'j':(0,0,0,1),
-		'l':(0,0,0,-1),
-		'u':(1,0,0,1),
-		',':(-1,0,0,0),
-		'.':(-1,0,0,1),
-		'm':(-1,0,0,-1),
-		'O':(1,-1,0,0),
-		'I':(1,0,0,0),
-		'J':(0,1,0,0),
-		'L':(0,-1,0,0),
-		'U':(1,1,0,0),
-		'<':(-1,0,0,0),
-		'>':(-1,-1,0,0),
-		'M':(-1,1,0,0),
-		't':(0,0,1,0),
-		'b':(0,0,-1,0),
-	       }
+		'i':(0.3,0),
+		'o':(0,0),
+		'j':(0.4,0.6),
+		'l':(0.4,-0.6),
+		'u':(0.33,0.8),
+		'p':(0.33,-0.7),
+		'm':(-0.2,0),
+                'r':(0,0.5),
+                't':(0,-0.5)
+    	       }
 
 speedBindings={
 		'q':(1.1,1.1),
@@ -70,10 +60,15 @@ speedBindings={
 		'c':(1,.9),
 	      }
 
-counter = 0
+recording = False
+recording_counter = 0
+train_dir = 'dummy_dir'
 
+global_lin = 0
+global_ang = 0
 
 bridge = cv_bridge.CvBridge()
+
 
 
 def getKey():
@@ -90,7 +85,7 @@ def vels(speed,turn):
 def callback_image(data):
     try:
         cv_image = bridge.imgmsg_to_cv2(data, "bgr8")
-    except cv_bridge.CvBridgeError as e:
+    except cv_bridge.cvbridgeerror as e:
         print(e)
 
     (rows,cols,channels) = cv_image.shape
@@ -98,9 +93,27 @@ def callback_image(data):
         cv2.circle(cv_image, (50,50), 10, 255)
 
     cv2.imshow("frame", cv_image)
-    # Press Q on keyboard to  exit
-    if cv2.waitKey(25) & 0xFF == ord('q'):
+    # press q on keyboard to  exit
+    if cv2.waitkey(25) & 0xff == ord('q'):
         exit(1)
+
+def callback_image_save(data):
+    try:
+        cv_image = bridge.imgmsg_to_cv2(data, "bgr8")
+    except cv_bridge.cvbridgeerror as e:
+        print(e)
+
+    (rows,cols,channels) = cv_image.shape
+    if cols > 60 and rows > 60 :
+        cv2.circle(cv_image, (50,50), 10, 255)
+    global recording
+    global recording_counter
+    global train_dir
+    if recording:
+        filename = os.path.join(train_dir,'{0}_lin{1}_ang{2}.png'.format(recording_counter,global_lin,global_ang))
+        cv2.imwrite(filename,cv_image)
+        recording_counter += 1
+
 
 
 if __name__=="__main__":
@@ -112,7 +125,7 @@ if __name__=="__main__":
             thymio_name = 'thymio10'
 
 	pub = rospy.Publisher('/{0}/cmd_vel'.format(thymio_name), Twist, queue_size = 1)
-        sensor_center_subscriber = rospy.Subscriber('/{0}/camera/image_raw'.format(thymio_name), Image, callback_image)
+        sensor_center_subscriber = rospy.Subscriber('/{0}/camera/image_raw'.format(thymio_name), Image, callback_image_save)
 	rospy.init_node('teleop_twist_keyboard')
 
 	speed = rospy.get_param("~speed", 0.2)
@@ -130,33 +143,25 @@ if __name__=="__main__":
 		print(vels(speed,turn))
 		while(1):
 			key = getKey()
-			if key in moveBindings.keys():
-				x = moveBindings[key][0]
-				y = moveBindings[key][1]
-				z = moveBindings[key][2]
-				th = moveBindings[key][3]
-			elif key in speedBindings.keys():
-				speed = speed * speedBindings[key][0]
-				turn = turn * speedBindings[key][1]
-                                #print('key_binding')
-				print(vels(speed,turn))
-				if (status == 14):
-					print(msg)
-				status = (status + 1) % 15
-			else:
-				x = 0
-				y = 0
-				z = 0
-				th = 0
-				if (key == '\x03'):
-					break
-
-                        if x==0 and y==0 and z==0 and th==0:
-                            lin_speed = 0
-                        else:
-                            lin_speed = 0.3
-                        twist.linear.x = lin_speed; twist.linear.y = y*speed; twist.linear.z = z*speed;
-			twist.angular.x = 0; twist.angular.y = 0; twist.angular.z = th*turn
+                        try:
+                            lin, ang = moveBindings[key]
+                        except:
+                            if key == 's':
+                                import time
+                                train_dir = time.strftime("%Y%m%d-%H%M%S")
+                                os.makedirs(train_dir)
+                                recording = True
+                                recording_counter = 0
+                            elif key == 'd':
+                                recording = False
+		            lin = 0
+                            ang = 0
+                            if (key == '\x03'):
+			        break
+                        global_lin = lin
+                        global_ang = ang
+                        twist.linear.x = lin; twist.linear.y = 0; twist.linear.z = 0;
+			twist.angular.x = 0; twist.angular.y = 0; twist.angular.z = ang
 			pub.publish(twist)
 
 	except Exception as e:

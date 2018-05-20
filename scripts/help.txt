@@ -9,4 +9,11 @@ rosdep install cv_bridge
 
 
 
+in the test_camera.py file:
+regular callback_image function displays the video stream
+callback_image_save function:
+  when you hit 's' it creates a directory and begins saving
+  it saves images in the format [count]_lin[spd]_ang[spd].png
+  when you hit 'd' it stops recording
+
 
