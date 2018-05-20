@@ -1,0 +1,12 @@
+
+
+CV:
+pip install opencv-python
+
+cv_bridge:
+rosdep install cv_bridge
+
+
+
+
+

@@ -8,7 +8,9 @@ import rospy
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Image
 
+import numpy as np
 from scipy import misc
+import cv2, cv_bridge
 
 import sys, select, termios, tty
 
@@ -70,6 +72,10 @@ speedBindings={
 
 counter = 0
 
+
+bridge = cv_bridge.CvBridge()
+
+
 def getKey():
 	tty.setraw(sys.stdin.fileno())
 	select.select([sys.stdin], [], [], 0)
@@ -82,13 +88,20 @@ def vels(speed,turn):
 	return "currently:\tspeed %s\tturn %s " % (speed,turn)
 
 def callback_image(data):
-    image_data = data.data
-    height = data.height
-    width = data.width
-    image_data = np.array(image_data).reshape(height,width)
-    if COUNTER % 10 == 0:
-        misc.imsave('outfile'+str(COUNTER)+'.png', image_data)
-    COUNTER += 1
+    try:
+        cv_image = bridge.imgmsg_to_cv2(data, "bgr8")
+    except cv_bridge.CvBridgeError as e:
+        print(e)
+
+    (rows,cols,channels) = cv_image.shape
+    if cols > 60 and rows > 60 :
+        cv2.circle(cv_image, (50,50), 10, 255)
+
+    cv2.imshow("frame", cv_image)
+    # Press Q on keyboard to  exit
+    if cv2.waitKey(25) & 0xFF == ord('q'):
+        exit(1)
+
 
 if __name__=="__main__":
     	settings = termios.tcgetattr(sys.stdin)
@@ -99,7 +112,7 @@ if __name__=="__main__":
             thymio_name = 'thymio10'
 
 	pub = rospy.Publisher('/{0}/cmd_vel'.format(thymio_name), Twist, queue_size = 1)
-        sensor_center_subscriber = rospy.Subscriber('thymioX '+'/camera/image_raw', Image, callback_image)
+        sensor_center_subscriber = rospy.Subscriber('/{0}/camera/image_raw'.format(thymio_name), Image, callback_image)
 	rospy.init_node('teleop_twist_keyboard')
 
 	speed = rospy.get_param("~speed", 0.2)
