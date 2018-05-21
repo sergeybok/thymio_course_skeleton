@@ -40,12 +40,24 @@ CTRL-C to quit
 """
 
 moveBindings = {
-		'i':(0.3,0),
+		'w':(0.2,0),
+		's':(0,0),
+		'a':(0.3,0.6),
+		'd':(0.3,-0.6),
+		'q':(0.3,0.8),
+		'e':(0.3,-0.8),
+		'c':(-0.15,0),
+                'r':(0,0.5),
+                't':(0,-0.5)
+    	       }
+
+oveBindings = {
+		'i':(0.2,0),
 		'o':(0,0),
-		'j':(0.4,0.6),
-		'l':(0.4,-0.6),
-		'u':(0.33,0.8),
-		'p':(0.33,-0.7),
+		'j':(0.3,0.6),
+		'l':(0.3,-0.6),
+		'u':(0.3,0.8),
+		'o':(0.3,-0.8),
 		'm':(-0.2,0),
                 'r':(0,0.5),
                 't':(0,-0.5)
@@ -94,7 +106,7 @@ def callback_image(data):
 
     cv2.imshow("frame", cv_image)
     # press q on keyboard to  exit
-    if cv2.waitkey(25) & 0xff == ord('q'):
+    if cv2.waitKey(15) & 0xff == ord('q'):
         exit(1)
 
 def callback_image_save(data):
@@ -125,7 +137,7 @@ if __name__=="__main__":
             thymio_name = 'thymio10'
 
 	pub = rospy.Publisher('/{0}/cmd_vel'.format(thymio_name), Twist, queue_size = 1)
-        sensor_center_subscriber = rospy.Subscriber('/{0}/camera/image_raw'.format(thymio_name), Image, callback_image_save)
+        sensor_center_subscriber = rospy.Subscriber('/{0}/camera/image_raw'.format(thymio_name), Image, callback_image)
 	rospy.init_node('teleop_twist_keyboard')
 
 	speed = rospy.get_param("~speed", 0.2)
