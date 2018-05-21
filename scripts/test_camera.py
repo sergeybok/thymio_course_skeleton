@@ -44,8 +44,8 @@ moveBindings = {
 		's':(0,0),
 		'a':(0.3,0.6),
 		'd':(0.3,-0.6),
-		'q':(0.3,0.8),
-		'e':(0.3,-0.8),
+		'q':(0.3,1.0),
+		'e':(0.3,-1.0),
 		'c':(-0.15,0),
                 'r':(0,0.5),
                 't':(0,-0.5)
@@ -121,10 +121,11 @@ def callback_image_save(data):
     global recording
     global recording_counter
     global train_dir
-    if recording:
+    recording_counter += 1
+    if recording and recording_counter % 2 == 0:
         filename = os.path.join(train_dir,'{0}_lin{1}_ang{2}.png'.format(recording_counter,global_lin,global_ang))
         cv2.imwrite(filename,cv_image)
-        recording_counter += 1
+        
 
 
 
@@ -137,7 +138,7 @@ if __name__=="__main__":
             thymio_name = 'thymio10'
 
 	pub = rospy.Publisher('/{0}/cmd_vel'.format(thymio_name), Twist, queue_size = 1)
-        sensor_center_subscriber = rospy.Subscriber('/{0}/camera/image_raw'.format(thymio_name), Image, callback_image)
+        sensor_center_subscriber = rospy.Subscriber('/{0}/camera/image_raw'.format(thymio_name), Image, callback_image_save)
 	rospy.init_node('teleop_twist_keyboard')
 
 	speed = rospy.get_param("~speed", 0.2)
@@ -158,13 +159,13 @@ if __name__=="__main__":
                         try:
                             lin, ang = moveBindings[key]
                         except:
-                            if key == 's':
+                            if key == 'p':
                                 import time
                                 train_dir = time.strftime("%Y%m%d-%H%M%S")
                                 os.makedirs(train_dir)
                                 recording = True
                                 recording_counter = 0
-                            elif key == 'd':
+                            elif key == 'o':
                                 recording = False
 		            lin = 0
                             ang = 0
