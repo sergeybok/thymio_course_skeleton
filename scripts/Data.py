@@ -12,6 +12,8 @@ def get_data(root_dir, stacked=1,grey=True):
     buffer = [0]
     labels_buf = [0]
     for root, dirs, filenames in os.walk(root_dir):
+        buffer = [0]
+        labels_buf = [0]
         for filename in filenames:
             if filename.endswith('png'):
                 try:
