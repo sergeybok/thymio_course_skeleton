@@ -33,8 +33,8 @@ def CNN(x):
     #small_x = tf.image.resize_images(x,[64,64])
     small_x = x
     conv1 = tf.layers.conv2d(small_x,filters=16,kernel_size=[7,7],padding='valid',activation=tf.nn.relu)
-    pool1 = tf.layers.max_pooling2d(conv1,pool_size=[2,2],strides=[2,2])
-    conv2 = tf.layers.conv2d(pool1, filters=8,kernel_size=[7,7],padding='valid',activation=tf.nn.relu)
+    pool1 = tf.layers.max_pooling2d(conv1,pool_size=[4,4],strides=[4,4])
+    conv2 = tf.layers.conv2d(pool1, filters=10,kernel_size=[2,2],padding='valid',activation=tf.nn.relu)
     pool2 = tf.layers.max_pooling2d(conv2,pool_size=[3,3],strides=[3,3])
     #conv3 = tf.layers.conv2d(pool2,filters=8, kernel_size=[3,3],padding='valid')
     #pool3 = tf.layers.max_pooling2d(conv3,pool_size=[2,2],strides=[2,2])
@@ -153,3 +153,4 @@ def test_model(inputx=Rx,inputy=Ry,error=rnn_Error,steps=20,testdir='test'):
     print('avg {0}'.format(avg))
 
 
+test_model()
