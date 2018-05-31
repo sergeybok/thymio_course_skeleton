@@ -46,7 +46,7 @@ class RNNDriver(object):
     def __init__(self):
         self.build_graph()
         self.init_session()
-        #self.last_hid_state = None
+        self.last_hid_state = self.sess.run(self.zero_state,{})
 
     def build_graph(self):
 
@@ -74,11 +74,12 @@ class RNNDriver(object):
 
         print(rconv_flat.get_shape().as_list())
 
-        lstm_cell = tf.nn.rnn_cell.LSTMCell(num_units=rnn_hid,forget_bias=2)
+        lstm_cell = tf.nn.rnn_cell.LSTMCell(num_units=rnn_hid,forget_bias=2,state_is_tuple=False)
 
-        #self.hid_state = tf.placeholder_with_default(lstm_cell.zero_state(rnn_batch,dtype=tf.float32),shape=None)
+        self.zero_state = lstm_cell.zero_state(rnn_batch,dtype=tf.float32)
         
-        self.hid_state = lstm_cell.zero_state(rnn_batch,dtype=tf.float32)
+        self.hid_state = tf.placeholder_with_default(self.zero_state,shape=[1,2*rnn_hid])
+        
         
         rnn_outputs, self.rnn_states = tf.nn.dynamic_rnn(cell=lstm_cell,
             inputs=rconv_flat,
@@ -98,7 +99,7 @@ class RNNDriver(object):
         saver.restore(self.sess,model_file)
     
     def infer(self,imgs):
-        pred, cur_state = self.sess.run([self.prediction,self.rnn_states],{self.Rx:imgs,self.hid_state:self.last_hid_state})
-        self.last_hid_state = cur_state.reshape((rnn_hid,rnn_hid))
+        pred, self.last_hid_state = self.sess.run([self.prediction,self.rnn_states],{self.Rx:imgs,self.hid_state:self.last_hid_state})
+        #self.last_hid_state = cur_state.reshape((rnn_hid,rnn_hid))
         return pred
 
